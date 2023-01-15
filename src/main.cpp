@@ -37,7 +37,8 @@ void writeToSD(String data)
   // if the file opened okay, write to it:
   if (sdCardFile)
   {
-    sdCardFile.println(data);
+    // sdCardFile.write(data.c_str());
+    sdCardFile.print(data);
     // close the file:
     sdCardFile.close();
   }
@@ -117,8 +118,6 @@ void loop()
   // If the end stop was triggered, write a pass result to the sd card and serial else write a fail result to the sd card and serial
   if (endStopTriggered)
   {
-    // increment the trigger count
-    triggerCount++;
     // increnent consequitiveTriggers
     consequitiveTriggers++;
     // Create a test result string
@@ -131,6 +130,8 @@ void loop()
     // Reset consequitiveTriggers after a fail
     consequitiveTriggers = 0;
   }
+  // Increment the trigger count
+  triggerCount++;
   // wait until hold time is reached then reset the solenoid
   delay(solenoidHoldTime);
   // reset the solenoid
