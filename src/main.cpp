@@ -17,6 +17,8 @@ int endStopPin = 34;  // End stop pin
 int minTriggerDelay = 250;  // Minimum delay between triggers
 int maxTriggerDelay = 1000; // Maximum delay between triggers
 
+int solenoidHoldTime = 500; // How long we hold the solenoid for
+
 // Sense time is how long we wait for the end stop to be triggered (more than maxSenseTime and we assume it's a failed activation)
 int minSenseTime = 100; // Minimum time between activating the solenoid and reading the end stop
 int maxSenseTime = 500; // Maximum time between activating the solenoid and reading the end stop
@@ -30,7 +32,7 @@ void setup()
   Serial.begin(9600);
   Serial.print("Initializing SD card...");
 
-  if (!SD.begin(4))
+  if (!SD.begin(5))
   {
     Serial.println("initialization failed!");
     while (1)
@@ -74,9 +76,9 @@ void loop()
   // Trigger the solenoid
   Serial.println("Triggering Solenoid");
   sdCardFile = SD.open("test.txt", FILE_WRITE);
-  sdCardFile.println("Triggering Solenoid" + String(millis() - lastTime));
+  // sdCardFile.println("Triggering Solenoid" + String(millis() - lastTime));
   // Write the above to serial
-  Serial.println("Triggering Solenoid" + String(millis() - lastTime));
+  // Serial.println("Triggering Solenoid" + String(millis() - lastTime));
   // Trigger the solenoid
   digitalWrite(solenoidPin, HIGH);
   // Wait minSenseTime
@@ -103,16 +105,17 @@ void loop()
 
     Serial.println(String(triggerCount) + ": PASSED in " + (millis() - lastTime) + "ms. Consequitive Triggers: " + String(consequitiveTriggers));
     sdCardFile.println(String(triggerCount) + ": PASSED in " + (millis() - lastTime) + "ms. Consequitive Triggers: " + String(consequitiveTriggers));
-    consequitiveTriggers++;
   }
   else
   {
-    Serial.println(String(triggerCount) + ": FAILED in " + (millis() - lastTime) + "ms. Fail after " + String(consequitiveTriggers) + "Consequitive Triggers");
-    sdCardFile.println(String(triggerCount) + ": FAILED in " + (millis() - lastTime) + "ms. Fail after " + String(consequitiveTriggers) + "Consequitive Triggers");
+    Serial.println(String(triggerCount) + ": FAILED in " + (millis() - lastTime) + "ms. Fail after " + String(consequitiveTriggers) + " Consequitive Triggers");
+    sdCardFile.println(String(triggerCount) + ": FAILED in " + (millis() - lastTime) + "ms. Fail after " + String(consequitiveTriggers) + " Consequitive Triggers");
     consequitiveTriggers = 0;
   }
   // Close the file
   sdCardFile.close();
+  // wait until hold time is reached then reset the solenoid
+  delay(solenoidHoldTime);
   // reset the solenoid
   digitalWrite(solenoidPin, LOW);
   // reset endStopTriggered
