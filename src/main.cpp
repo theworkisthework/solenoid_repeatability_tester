@@ -32,13 +32,13 @@ void writeToSD(String data)
 {
   // open the file. note that only one file can be open at a time,
   // so you have to close this one before opening another.
-  sdCardFile = SD.open("/test.txt", FILE_WRITE);
+  sdCardFile = SD.open("/test.txt", FILE_APPEND);
 
   // if the file opened okay, write to it:
   if (sdCardFile)
   {
-    // sdCardFile.write(data.c_str());
-    sdCardFile.print(data);
+    // write to the file
+    sdCardFile.println(data);
     // close the file:
     sdCardFile.close();
   }
