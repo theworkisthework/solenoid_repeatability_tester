@@ -27,6 +27,8 @@ int maxSenseTime = 500; // Maximum time between activating the solenoid and read
 
 // Consequitive triggers is the number of times we can trigger the solenoid in a row
 int consequitiveTriggers = 0;
+int passes = 0;
+int fails = 0;
 
 void writeToSD(String data)
 {
@@ -89,9 +91,12 @@ void loop()
   if (digitalRead(stopTestPin) == LOW)
   {
     Serial.println("Stopping Test");
-    sdCardFile = SD.open("/test.txt", FILE_WRITE);
+
     data = "======= End Test =======";
-    sdCardFile.println(data);
+    writeToSD(data);
+    Serial.println(data);
+    data = "===" + String(passes) + " PASSED, " + String(fails) + " FAILED, " + String(triggerCount) + " TOTAL ===\n";
+    writeToSD(data);
     Serial.println(data);
     while (1)
       ;
@@ -120,6 +125,7 @@ void loop()
   {
     // increnent consequitiveTriggers
     consequitiveTriggers++;
+    passes++;
     // Create a test result string
     data = String(triggerCount) + ": PASSED in " + (millis() - lastTime) + "ms. Consequitive Triggers: " + String(consequitiveTriggers);
   }
@@ -129,6 +135,7 @@ void loop()
     data = String(triggerCount) + ": FAILED in " + (millis() - lastTime) + "ms. Fail after " + String(consequitiveTriggers) + " Consequitive Triggers";
     // Reset consequitiveTriggers after a fail
     consequitiveTriggers = 0;
+    fails++;
   }
   // Increment the trigger count
   triggerCount++;
