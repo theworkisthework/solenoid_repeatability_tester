@@ -101,28 +101,41 @@ void loop()
     while (1)
       ;
   }
-  // Trigger the solenoid
-  Serial.println("Triggering Solenoid");
-  // Trigger the solenoid
-  digitalWrite(solenoidPin, HIGH);
-  // Wait minSenseTime
-  delay(minSenseTime);
-  // update lastTime
-  lastTime = millis();
+
+  // To avoid false positives, we need to ensure the endstop state goes from low (led on) to high (led off)
+  // To acheive that, we can check the endstop is in the expected state. It should start low (solenoid off)
+  // and then read high when the solendoid is triggered.
+
   boolean endStopTriggered = false;
+  boolean endStopStartState = true;
+
+  if (digitalRead(endStopPin) == LOW)
+  {
+    endStopStartState = true;
+    // Trigger the solenoid
+    Serial.println("Triggering Solenoid");
+    // Trigger the solenoid
+    digitalWrite(solenoidPin, HIGH);
+    // Wait minSenseTime
+    delay(minSenseTime);
+    // update lastTime
+    lastTime = millis();
+  }
 
   // Keep checking the end stop until it's triggered or maxSenseTime is reached, if it's triggered, set endStopTriggered to true
   while (millis() - lastTime < maxSenseTime)
   {
-    if (digitalRead(endStopPin) == HIGH)
+    if (digitalRead(endStopPin) == HIGH && endStopStartState)
     {
       endStopTriggered = true;
       break;
     }
   }
   // If the end stop was triggered, write a pass result to the sd card and serial else write a fail result to the sd card and serial
-  if (endStopTriggered)
+  if (endStopTriggered && endStopStartState)
   {
+    // reset endstop start state
+    endStopStartState = false;
     // increnent consequitiveTriggers
     consequitiveTriggers++;
     passes++;
