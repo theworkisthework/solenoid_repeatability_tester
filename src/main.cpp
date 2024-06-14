@@ -15,7 +15,7 @@ const unsigned long solenoidHold = 100;         // pwm value for solenoid hold (
 const unsigned long solenoidPullDuration = 100; // duration solenoid operates at pull setting
 
 const unsigned long maxOnDuration = 2000; // Maximum duration solenoid can stay on in milliseconds
-const unsigned long maxInterval = 3000;   // Maximum interval between cycles in milliseconds
+const unsigned long maxInterval = 2500;   // Maximum interval between cycles in milliseconds
 const unsigned long minInterval = 500;    // Minimum interval between cycles in milliseconds
 
 unsigned long timeBetweenTests = random(minInterval, maxInterval); // Generate a random interval
@@ -88,24 +88,24 @@ void setup()
 
 void loop()
 {
-  unsigned long currentMillis = millis();
-
-  if (currentMillis - lastCycleEnd >= timeBetweenTests)
+  if (millis() - lastCycleEnd >= timeBetweenTests)
   {
 
     unsigned long onDuration = random(maxOnDuration); // Generate a random on duration
 
     Serial.println("Solenoid ON (" + String(onDuration) + " milliseconds)");
+    // Solenoid on at pull strength for pull duration
     analogWrite(solenoidPin, solenoidPull);
     delay(solenoidPullDuration);
+    // Solenoid on at hold strength for hold duration
     analogWrite(solenoidPin, solenoidHold);
     delay(onDuration);
+    // Solenoid off
     analogWrite(solenoidPin, 0);
-
     Serial.println("Solenoid OFF");
 
     unsigned long startTime = millis();
-    Serial.println(String(endstopCounter));
+
     while (millis() - startTime < 500)
     { // 500 ms timeout for detecting endstop
       if (endstopCounter >= 2)
@@ -125,7 +125,7 @@ void loop()
 
     endstopCounter = 0;                                  // Reset the endstop counter
     timeBetweenTests = random(minInterval, maxInterval); // Generate a new random interval
-    lastCycleEnd = currentMillis;                        // Reset time when test ended to now
+    lastCycleEnd = millis();                             // Reset time when test ended to now
     Serial.println("Cycle completed. Waiting for " + String(timeBetweenTests) + " milliseconds.\n");
   }
 }
