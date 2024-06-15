@@ -10,6 +10,8 @@ unsigned long passCount = 0;    // The number of passed tests so far
 unsigned long failCount = 0;    // The number of failed tests so far
 boolean detectedSolenoidOn = 0;
 boolean detectedSolenoidOff = 0;
+String testStart = "================Test Start===================";
+String testEnd = "=================Test End====================";
 
 // Board Configuration
 const int solenoidPin = 27; // Pin connected to solenoid
@@ -57,6 +59,7 @@ void logResult(String result)
 
   // Output test summary to serial
   Serial.println(testSummary);
+  Serial.println(testEnd);
 
   // Log to SD card
   File dataFile = SD.open("/text.txt", FILE_APPEND);
@@ -107,7 +110,7 @@ void loop()
   {
 
     unsigned long onDuration = random(maxOnDuration); // Generate a random on duration
-
+    Serial.println(testStart);
     Serial.println("Solenoid ON (" + String(onDuration) + " milliseconds)");
     endstopCounter = 0; // Reset end stop counter
     // Solenoid on at pull strength for pull duration
@@ -169,6 +172,6 @@ void loop()
     // endstopCounter = 0;                                  // Reset the endstop counter
     timeBetweenTests = random(minInterval, maxInterval); // Generate a new random interval
     lastCycleEnd = millis();                             // Reset time when test ended to now
-    Serial.println("Test complete. Waiting for " + String(timeBetweenTests) + " milliseconds.\n");
+    Serial.println("\nTest complete. Waiting for " + String(timeBetweenTests) + " milliseconds.\n");
   }
 }
