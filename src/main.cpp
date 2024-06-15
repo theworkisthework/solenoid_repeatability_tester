@@ -8,14 +8,24 @@ const int chipSelect = 5;   // SD card CS pin
 volatile int endstopCounter = 0;
 unsigned long lastCycleEnd = 0; // When (in millis) did the last test cycle end
 unsigned int lineNumber = 1;    // Initialize line number
+boolean detectedSolenoidOn = 0;
+boolean detectedSolenoidOff = 0;
+unsigned long startTime;
 
 const unsigned long solenoidFrequency = 30000;  // pwm frequency for solenoid (Hz)
 const unsigned long solenoidPull = 255;         // pwm value for solenoid on (initial pull, max 255)
 const unsigned long solenoidHold = 100;         // pwm value for solenoid hold (holding while on, max 255)
 const unsigned long solenoidPullDuration = 100; // duration solenoid operates at pull setting
 
-const unsigned long maxOnDuration = 2000; // Maximum duration solenoid can stay on in milliseconds
-const unsigned long maxInterval = 2500;   // Maximum interval between cycles in milliseconds
+// Should we even wait for some time to say we have detected the trigger?
+// Why not just wait until we have detected the trigger and timeout? We do that, but we also need to say
+// that if after a certain length of time, we haven't detected the trigger, then we can say the activation
+// or deactivation has failed. It might be slow or lazy in which case we should consider that a fail.
+const unsigned long solenoidActivationDectectionWindow = 100;   // Time we wait before checking for activation
+const unsigned long solenoidDeactivationDectectionWindow = 200; // Time we wait before checking for deactivation (note: this takes longer than activation)
+
+const unsigned long maxOnDuration = 2500; // Maximum duration solenoid can stay on in milliseconds
+const unsigned long maxInterval = 1500;   // Maximum interval between cycles in milliseconds
 const unsigned long minInterval = 500;    // Minimum interval between cycles in milliseconds
 
 unsigned long timeBetweenTests = random(minInterval, maxInterval); // Generate a random interval
@@ -30,7 +40,7 @@ void logResult(String result)
   File dataFile = SD.open("/text.txt", FILE_APPEND);
   if (dataFile)
   {
-    dataFile.print(lineNumber); // Print the line number
+    dataFile.print("Test " + lineNumber); // Print the line number
     dataFile.print(": ");
     String colorCode;
     if (result.equals("PASS"))
@@ -41,7 +51,7 @@ void logResult(String result)
     dataFile.close();
 
     // Log to serial port
-    Serial.print(lineNumber); // Print the line number to serial monitor
+    Serial.print("Test " + lineNumber); // Print the line number to serial monitor
     Serial.print(": ");
     if (result.equals("PASS"))
       Serial.print("\x1B[92m"); // Green
@@ -94,27 +104,53 @@ void loop()
     unsigned long onDuration = random(maxOnDuration); // Generate a random on duration
 
     Serial.println("Solenoid ON (" + String(onDuration) + " milliseconds)");
+    endstopCounter = 0; // Reset end stop counter
     // Solenoid on at pull strength for pull duration
     analogWrite(solenoidPin, solenoidPull);
-    delay(solenoidPullDuration);
-    // Solenoid on at hold strength for hold duration
-    analogWrite(solenoidPin, solenoidHold);
-    delay(onDuration);
-    // Solenoid off
-    analogWrite(solenoidPin, 0);
-    Serial.println("Solenoid OFF");
 
-    unsigned long startTime = millis();
-
-    while (millis() - startTime < 500)
+    // Check that endstop was tirggered at solenoid on
+    startTime = millis();
+    while (millis() - startTime < solenoidActivationDectectionWindow)
     { // 500 ms timeout for detecting endstop
-      if (endstopCounter >= 2)
+      if (endstopCounter >= 1)
       { // Check if both pulses are detected
+        Serial.println("Detected solenoid activation");
+        detectedSolenoidOn = true;
         break;
       }
     }
+    endstopCounter = 0; // Reset end stop counter
+    // Wait for the pull duration (Should we subtract the detection time? It might not always be the full lenght of time if detection breaks out of the while loop)
+    if (solenoidPullDuration - (millis() - startTime) > 0)
+    {
+      delay(solenoidPullDuration - (millis() - startTime));
+      // Solenoid on at pull strength for pull duration less however long we have already waited for endstop detection
+      // If this duration is less than 1, we've already waited longer than the pull duration so don't wait any longer
+    }
 
-    if (endstopCounter >= 2)
+    // Solenoid on at hold strength
+    analogWrite(solenoidPin, solenoidHold);
+    delay(onDuration);
+
+    endstopCounter = 0; // Reset the endstop counter just to clear any anaomalous readings
+    // Solenoid off
+    analogWrite(solenoidPin, 0);
+    Serial.println("Solenoid OFF");
+    startTime = millis();
+    while (millis() - startTime < solenoidDeactivationDectectionWindow)
+    { // 500 ms timeout for detecting endstop
+      if (endstopCounter >= 1)
+      { // Check if both pulses are detected
+        Serial.println("Detected solenoid de-activation");
+        detectedSolenoidOff = true;
+        break;
+      }
+    }
+    endstopCounter = 0; // Probably redundant, but just for good measure, clear the endstop counter again
+
+    Serial.println("Detected: Solenoid ON: " + String(detectedSolenoidOn) + " Solenoid OFF: " + String(detectedSolenoidOff) + "");
+
+    if (detectedSolenoidOn & detectedSolenoidOff)
     {
       logResult("PASS");
     }
@@ -123,9 +159,11 @@ void loop()
       logResult("FAIL");
     }
 
-    endstopCounter = 0;                                  // Reset the endstop counter
+    detectedSolenoidOn = false; // Reset solenoid detection states
+    detectedSolenoidOff = false;
+    // endstopCounter = 0;                                  // Reset the endstop counter
     timeBetweenTests = random(minInterval, maxInterval); // Generate a new random interval
     lastCycleEnd = millis();                             // Reset time when test ended to now
-    Serial.println("Cycle completed. Waiting for " + String(timeBetweenTests) + " milliseconds.\n");
+    Serial.println("Test complete. Waiting for " + String(timeBetweenTests) + " milliseconds.\n");
   }
 }
