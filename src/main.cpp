@@ -7,7 +7,7 @@ const int chipSelect = 5;   // SD card CS pin
 
 volatile int endstopCounter = 0;
 unsigned long lastCycleEnd = 0; // When (in millis) did the last test cycle end
-unsigned int lineNumber = 1;    // Initialize line number
+unsigned int testCount = 1;     // Initialize line number
 boolean detectedSolenoidOn = 0;
 boolean detectedSolenoidOff = 0;
 unsigned long startTime;
@@ -40,7 +40,7 @@ void logResult(String result)
   File dataFile = SD.open("/text.txt", FILE_APPEND);
   if (dataFile)
   {
-    dataFile.print("Test " + lineNumber); // Print the line number
+    dataFile.print("Test " + String(testCount)); // Print the line number
     dataFile.print(": ");
     String colorCode;
     if (result.equals("PASS"))
@@ -51,14 +51,14 @@ void logResult(String result)
     dataFile.close();
 
     // Log to serial port
-    Serial.print("Test " + lineNumber); // Print the line number to serial monitor
+    Serial.print("Test " + String(testCount)); // Print the line number to serial monitor
     Serial.print(": ");
     if (result.equals("PASS"))
       Serial.print("\x1B[92m"); // Green
     else
       Serial.print("\x1B[91m");         // Red
     Serial.println(result + "\x1B[0m"); // Reset to default color
-    lineNumber++;                       // Increment the line number for next entry
+    testCount++;                        // Increment the line number for next entry
   }
   else
   {
