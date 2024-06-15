@@ -1,34 +1,36 @@
 #include <SD.h>
 #include <SPI.h>
 
+// Test Variables (Don't change these)
+volatile int endstopCounter = 0;
+unsigned long startTime;
+unsigned long lastCycleEnd = 0; // When (in millis) did the last test cycle end
+unsigned long testCount = 0;    // The current test number
+unsigned long passCount = 0;    // The number of passed tests so far
+unsigned long failCount = 0;    // The number of failed tests so far
+boolean detectedSolenoidOn = 0;
+boolean detectedSolenoidOff = 0;
+
+// Board Configuration
 const int solenoidPin = 27; // Pin connected to solenoid
 const int endstopPin = 34;  // Pin connected to endstop (must be interrupt-capable pin)
 const int chipSelect = 5;   // SD card CS pin
 
-volatile int endstopCounter = 0;
-unsigned long lastCycleEnd = 0; // When (in millis) did the last test cycle end
-unsigned int testCount = 1;     // Initialize line number
-boolean detectedSolenoidOn = 0;
-boolean detectedSolenoidOff = 0;
-unsigned long startTime;
+// Solenoid Configuration
+const unsigned int solenoidFrequency = 30000;  // pwm frequency for solenoid (Hz)
+const unsigned int solenoidPull = 255;         // pwm value for solenoid on (initial pull, max 255)
+const unsigned int solenoidHold = 100;         // pwm value for solenoid hold (holding while on, max 255)
+const unsigned int solenoidPullDuration = 100; // duration solenoid operates at pull setting
 
-const unsigned long solenoidFrequency = 30000;  // pwm frequency for solenoid (Hz)
-const unsigned long solenoidPull = 255;         // pwm value for solenoid on (initial pull, max 255)
-const unsigned long solenoidHold = 100;         // pwm value for solenoid hold (holding while on, max 255)
-const unsigned long solenoidPullDuration = 100; // duration solenoid operates at pull setting
+// Test Configuration
+const unsigned int solenoidActivationDectectionWindow = 100;   // Time we wait before checking for activation
+const unsigned int solenoidDeactivationDectectionWindow = 200; // Time we wait before checking for deactivation (note: this takes longer than activation)
 
-// Should we even wait for some time to say we have detected the trigger?
-// Why not just wait until we have detected the trigger and timeout? We do that, but we also need to say
-// that if after a certain length of time, we haven't detected the trigger, then we can say the activation
-// or deactivation has failed. It might be slow or lazy in which case we should consider that a fail.
-const unsigned long solenoidActivationDectectionWindow = 100;   // Time we wait before checking for activation
-const unsigned long solenoidDeactivationDectectionWindow = 200; // Time we wait before checking for deactivation (note: this takes longer than activation)
+const unsigned int maxOnDuration = 2500; // Maximum duration solenoid can stay on during a test in milliseconds
+const unsigned int maxInterval = 1500;   // Maximum interval between tests in milliseconds
+const unsigned int minInterval = 500;    // Minimum interval between tests in milliseconds
 
-const unsigned long maxOnDuration = 2500; // Maximum duration solenoid can stay on in milliseconds
-const unsigned long maxInterval = 1500;   // Maximum interval between cycles in milliseconds
-const unsigned long minInterval = 500;    // Minimum interval between cycles in milliseconds
-
-unsigned long timeBetweenTests = random(minInterval, maxInterval); // Generate a random interval
+unsigned long timeBetweenTests = random(minInterval, maxInterval); // Time between tests
 
 void endstopISR()
 {
@@ -37,28 +39,31 @@ void endstopISR()
 
 void logResult(String result)
 {
+  String testStatus;
+  if (result.equals("PASS"))
+  {
+    passCount++;
+    testStatus = "\x1B[92mPASS\x1B[0m";
+  }
+  else
+  {
+    failCount++;
+    testStatus = "\x1B[91mFAIL\x1B[0m";
+  }
+  testCount++; // Increment the test count
+
+  // Generate the test summary string
+  String testSummary = "Test " + String(testCount) + " " + testStatus + "\nTotal passed (" + String(passCount) + "), total failed (" + String(failCount) + ")";
+
+  // Output test summary to serial
+  Serial.println(testSummary);
+
+  // Log to SD card
   File dataFile = SD.open("/text.txt", FILE_APPEND);
   if (dataFile)
   {
-    dataFile.print("Test " + String(testCount)); // Print the line number
-    dataFile.print(": ");
-    String colorCode;
-    if (result.equals("PASS"))
-      colorCode = "\x1B[92m"; // Green
-    else
-      colorCode = "\x1B[91m";                         // Red
-    dataFile.println(colorCode + result + "\x1B[0m"); // Reset to default color
+    dataFile.println(testSummary);
     dataFile.close();
-
-    // Log to serial port
-    Serial.print("Test " + String(testCount)); // Print the line number to serial monitor
-    Serial.print(": ");
-    if (result.equals("PASS"))
-      Serial.print("\x1B[92m"); // Green
-    else
-      Serial.print("\x1B[91m");         // Red
-    Serial.println(result + "\x1B[0m"); // Reset to default color
-    testCount++;                        // Increment the line number for next entry
   }
   else
   {
